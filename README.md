@@ -56,19 +56,19 @@ export default {
     h1#title.
       The forest, and the trees
 
-    form(target='postbackFrame')
+    form( target='postbackFrame' )
       ${ inputs.map( input =>
         mj`
           label
             | ${ input.name }
-            input(value=${ input.value } )
+            input( value=${ input.value } )
         `
       ) }
 
     h2.
       Clarity of structural content and logical expression in harmony
 
-    iframe[name='postbackFrame']
+    iframe( name='postbackFrame' )
   `
 }
 ```
