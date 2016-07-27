@@ -5,25 +5,45 @@ import { html }  from 'common-tags'
 const attrs_to_hash = attrs => {
   const hash = {}
 
-  for( const i = 0; i < attrs.length; i++ )
+  for( let i = 0; i < attrs.length; i++ )
     hash[attrs[i].name] = attrs[i].val
 
   return hash
 }
 
-const pug_to_vdom = ( { type, attrs, nodes, block, name, val } ) => {
-  if( type == 'Block' )
-    return nodes.map( pug_to_vdom )
+export default ( [ buffer, ...strings ], ...values ) => {
+  const key    = 'emjay' + Date.now()
 
-  if( type == 'Tag' )
-    return  {
-      tag      : name,
-      attrs    : attrs_to_hash( attrs ),
-      children : block.nodes.map( pug_to_vdom )
+  const string = html(
+    strings.reduce(
+      ( buffer, string ) =>
+        buffer + key + string
+    )
+  )
+
+  const ast    = pugParser( pugLexer( keyed_string ) )
+
+  return ( function tovdom( node ){
+    if( node.val === key )
+      return values.unshift()
+
+    if( node.type == 'Block' )
+      return node.nodes.map( pug_to_vdom )
+
+    if( node.type == 'Tag' ){
+      let name = node.name
+
+      if( name.includes( key ) ){
+
+      }
+
+      return  {
+        tag      : node.name,
+        attrs    : attrs_to_hash( node.attrs ),
+        children : node.block.nodes.map( pug_to_vdom )
+      }
     }
 
-  return val || ''
+    return node.val || ''
+  } )( ast )
 }
-
-export default ( ...input ) =>
-  pug_to_vdom( pugParser( pugLexer( html( ...input ) ) ) )
