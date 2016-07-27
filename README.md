@@ -48,17 +48,16 @@ Emjay uses the same lexer and parser as Jade, and converts the output into a Mit
 Use it as an ES6 template tag function for minimal punctuation:
 
 ```es6
-import m  from 'mithril'
-import mj from 'emjay'
+import j from 'emjay'
 
 export default {
-  view : ( ctrl, { inputs } ) => mj`
+  view : ( ctrl, { inputs } ) => j`
     h1#title.
       The forest, and the trees
 
     form( target='postbackFrame' )
       ${ inputs.map( input =>
-        mj`
+        j`
           label
             | ${ input.name }
             input( value=${ input.value } )
@@ -75,5 +74,6 @@ export default {
 
 ## What's the catch?
 
+* No tests!
 * It's currently impossible to fold JS non-primitives (objects and functions) as attributes into nodes opened in Jade syntax. I'm working on it!
 * This places source code elegance above performance. Running this in production means parsing text as Jade & converting it into virtual DOM on every view execution. Ideally this function would be partially pre-compiled according to similar principles as Pat Cavit's [Mithril objectify](https://github.com/tivac/mithril-objectify/)
