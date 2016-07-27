@@ -17,7 +17,7 @@ function pug_to_vdom( node ){
 
   if( node.type == 'Tag' )
     return  {
-      tag      : name,
+      tag      : node.name,
       attrs    : attrs_to_hash( node.attrs ),
       children : node.block.nodes.map( pug_to_vdom )
     }
@@ -26,5 +26,11 @@ function pug_to_vdom( node ){
 }
 
 module.exports = function emjay(){
-  return pug_to_vdom( pugParser( pugLexer( html.apply( this, arguments ) ) ) )
+  var vdom = pug_to_vdom( pugParser( pugLexer( html.apply( this, arguments ) ) ) )
+
+  if( 'length' in vdom && vdom.length === 1 )
+    return vdom[ 0 ]
+
+  else
+    return vdom
 }

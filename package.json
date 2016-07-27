@@ -1,6 +1,6 @@
 {
   "name": "emjay",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Convert Jade templates to Mithril virtual DOM structures",
   "main": "index.js",
   "jsnext:main": "index.es6",
