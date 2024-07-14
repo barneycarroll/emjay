@@ -1,14 +1,15 @@
 // @ts-check
-import lex    from 'pug-lexer'
-import parse  from 'pug-parser'
-import walk   from 'pug-walk'
-import {html} from 'common-tags'
-import m      from 'mithril'
+import lex           from 'pug-lexer'
+import parse         from 'pug-parser'
+import walk          from 'pug-walk'
+import {stripIndent} from 'common-tags'
 
 /**
  * Mithril types
- * @typedef {import("mithril")}                 m
- * @typedef {m.Vnode | m.ChildArrayOrPrimitive} Vdom
+ * @typedef {import("mithril")} Vnode
+ * @typedef {import("mithril")} Component
+ * @typedef {import("mithril")} ChildArrayOrPrimitive
+ * @typedef {Vnode | ChildArrayOrPrimitive} Vdom
  *
  * Our own internal types
  * @typedef {(...args: any[]) => Vdom} Template
@@ -55,7 +56,7 @@ export default function emjay(strings, ...interpolations){
  */
 function vnode(tag, children, attrs){
   return {
-    /** @type {undefined | string | m.Component} */
+    /** @type {undefined | string | Component} */
     tag      : tag,
     /** @type {undefined | string | number} */
     key      : attrs?.key,
@@ -114,7 +115,7 @@ export function construct(strings){
   let dynamism = strings.length - 1
 
   if(dynamism === 0){
-    const tokens = lex(strings[0])
+    const tokens = lex(stripIndent(strings[0]))
 
     const ast    = parse(tokens)
 
@@ -172,6 +173,6 @@ export function construct(strings){
   const ast     = parse(string)
 
   return function template(){
-    return m('')
+    return ast
   }
 }
