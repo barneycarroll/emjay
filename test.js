@@ -10,7 +10,7 @@ import './mock_dom.js'
 import m   from 'mithril'
 import pug from './index.js'
 
-const htmlOf= vdom => {
+const htmlOf = vdom => {
   m.render(window.document.body, vdom)
 
   delete window.document.body.vnodes
@@ -18,157 +18,117 @@ const htmlOf= vdom => {
   return window.document.body.innerHTML
 }
 
+const assertHtmlParity = (...vdom) =>
+  assert.equal(...vdom.map(htmlOf))
+
 describe('static input', () => {
   describe('single elements', () => {
     it('plain', () => {
-      assert.equal(
-        htmlOf(
-          pug`br`
-        ),
+      assertHtmlParity(
+        pug`br`,
 
-        htmlOf(
-          m(`br`)
-        ),
+        m(`br`),
       )
     })
 
     it('shorthand class', () => {
-      assert.equal(
-        htmlOf(
-          pug`.class`
-        ),
+      assertHtmlParity(
+        pug`.class`,
 
-        htmlOf(
-          m(`.class`)
-        ),
+        m(`.class`),
       )
     })
 
     it('shorthand id', () => {
-      assert.equal(
-        htmlOf(
-          pug`#id`
-        ),
+      assertHtmlParity(
+        pug`#id`,
 
-        htmlOf(
-          m(`#id`)
-        ),
+        m(`#id`),
       )
     })
 
     it('verbose attributes', () => {
-      assert.equal(
-        htmlOf(
-          pug`link(rel='stylesheet' href='/style.css')`
-        ),
+      assertHtmlParity(
+        pug`link(rel='stylesheet' href='/style.css')`,
 
-        htmlOf(
-          m(`link[rel='stylesheet'][href='/style.css']`)
-        ),
+        m(`link[rel='stylesheet'][href='/style.css']`),
       )
     })
 
     it('shorthand boolean attributes', () => {
-      assert.equal(
-        htmlOf(
-          pug`input(checked disabled)`
-        ),
+      assertHtmlParity(
+        pug`input(checked disabled)`,
 
-        htmlOf(
-          m(`input[checked][disabled]`)
-        ),
+        m(`input[checked][disabled]`),
       )
     })
 
     it('inline text', () => {
-      assert.equal(
-        htmlOf(
-          pug`p Some text`
-        ),
+      assertHtmlParity(
+        pug`p Some text`,
 
-        htmlOf(
-          m(`p`, `Some text`)
-        ),
+        m(`p`, `Some text`),
       )
     })
 
     it('kitchen sink', () => {
-      assert.equal(
-        htmlOf(
-          pug`p#id.class1.class2(class='class3' foo=bar boolean) Some text`
-        ),
+      assertHtmlParity(
+        pug`p#id.class1.class2(class='class3' foo=bar boolean) Some text`,
 
-        htmlOf(
-          m(`p#id.class1.class2[class="class3"][foo="bar"][boolean]`, `Some text`)
-        ),
+        m(`p#id.class1.class2[class="class3"][foo="bar"][boolean]`, `Some text`),
       )
     })
   })
 
   describe('structured content', () => {
     it('block text', () => {
-      assert.equal(
-        htmlOf(pug`p.
-                     Blocks
+      assertHtmlParity(
+        pug`p.
+          Blocks
 
-                     of text
-        `),
+          of text
+        `,
 
-        htmlOf(m(`p`,
-                    `Blocks`,
-                    `\n\n`,
-                    `of text`,
-        )),
+        m(`p`,
+          `Blocks`,
+          `\n\n`,
+          `of text`,
+        ),
       )
     })
 
     it('pipe text', () => {
-      assert.equal(
-        htmlOf(pug`p
-                     | Piped
-                     | text
-        `),
+      assertHtmlParity(
+        pug`p
+            | Piped
+            | text
+        `,
 
-        htmlOf(m(`p`,
-                    `Piped`,
-                    `\n`,
-                    `text`,
-        )),
-      )
-    })
-
-    it('pipe text', () => {
-      assert.equal(
-        htmlOf(pug`p
-                     | Piped
-                     | text
-        `),
-
-        htmlOf(m(`p`,
-                    `Piped`,
-                    `\n`,
-                    `text`,
-        )),
+        m(`p`,
+          `Piped`,
+          `\n`,
+          `text`,
+        ),
       )
     })
 
     it('adjacent elements', () => {
-      assert.equal(
-        htmlOf(pug`
+      assertHtmlParity(
+        pug`
           p Element one
           p Element two
-        `),
+        `,
 
-        htmlOf([
+        [
           m(`p`, `Element one`),
           m(`p`, `Element two`),
-        ]),
+        ],
       )
     })
 
     it('nested elements', () => {
-      assert.equal(
-        htmlOf(pug`
+      assertHtmlParity(
+        pug`
           ol
             li
               ol
@@ -178,21 +138,19 @@ describe('static input', () => {
               ol
                 li 2.1
                 li 2.2
-        `),
+        `,
 
-        htmlOf(
-          m(`ol`,
-            m(`li`,
-              m(`ol`,
-                m(`li`, `1.1`),
-                m(`li`, `1.2`),
-              ),
+        m(`ol`,
+          m(`li`,
+            m(`ol`,
+              m(`li`, `1.1`),
+              m(`li`, `1.2`),
             ),
-            m(`li`,
-              m(`ol`,
-                m(`li`, `2.1`),
-                m(`li`, `2.2`),
-              ),
+          ),
+          m(`li`,
+            m(`ol`,
+              m(`li`, `2.1`),
+              m(`li`, `2.2`),
             ),
           ),
         ),
@@ -200,10 +158,10 @@ describe('static input', () => {
     })
 
     it('inline elements', () => {
-      assert.equal(
-        htmlOf(pug`h1: a(href='example.com') Nested link `),
+      assertHtmlParity(
+        pug`h1: a(href='example.com') Nested link `,
 
-        htmlOf(m(`h1`, m(`a[href=example.com]`, `Nested link`))),
+        m(`h1`, m(`a[href=example.com]`, `Nested link`)),
       )
     })
   })
