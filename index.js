@@ -1,68 +1,177 @@
-var pugLexer  = require( 'pug-lexer' )
-var pugParser = require( 'pug-parser' )
-var html      = require( 'common-tags' ).html
+// @ts-check
+import lex    from 'pug-lexer'
+import parse  from 'pug-parser'
+import walk   from 'pug-walk'
+import {html} from 'common-tags'
+import m      from 'mithril'
 
-function attrs_to_hash( attrs, transformer ){
-  var hash = {}
+/**
+ * Mithril types
+ * @typedef {import("mithril")}                 m
+ * @typedef {m.Vnode | m.ChildArrayOrPrimitive} Vdom
+ *
+ * Our own internal types
+ * @typedef {(...args: any[]) => Vdom} Template
+ */
 
-  for( var i = 0; i < attrs.length; i++ )
-    hash[ transformer( attrs[i].name ) ] = transformer( attrs[i].val )
+/**
+ * String prefix for temporary substitution placeholders.
+ * Used to pass a plain string to Pug lexer & parser,
+ * then replaced with interpolations in Mithril vdom construction.
+ */
+const sPrefix = 'emjay_substitution_'
+const rPrefix = new RegExp('^' + sPrefix + '(\\d+)$')
 
-  return hash
-}
+/**
+ * Cache Pug lexing and parsing per template
+ * @type {WeakMap.<TemplateStringsArray, Template>}
+ */
+const templates = new WeakMap
 
-module.exports = function emjay(){
-  // Dynamic values (as opposed to strings)
-  var interpolations = Array.prototype.slice.call( arguments, 1 )
-  // Strings to stand in as symbols for dynamic values
-  var placeholders   = interpolations.map( function( interpolation, index ){
-    return 'emjay' + index
-  } )
-  // The pug template, with placeholders indicating interpolated content
-  var pug_template   = html.apply( this, [ arguments[ 0 ] ].concat( placeholders ) )
+/**
+ * Convert a Pug template literal into Mithril virtual DOM
+ * @arg {TemplateStringsArray} strings
+ * @arg {any[]}                interpolations
+ * @returns {Vdom}
+ */
+export default function emjay(strings, ...interpolations){
+  if(!templates.has(strings)){
+    var template = construct(strings)
 
-  // Substitutes placeholders with corresponding interpolations
-  function hydrate( entity ){
-    if( typeof entity === 'string' ){
-      if( /^emjay\d+$/.test( entity ) )
-        return interpolations[ entity.substr( 5 ) ]
-
-      else
-        return entity.replace( /emjay(\d+)/g, function( placeholder, index ){
-          return interpolations[ index ]
-        } )
-    }
-
-    return entity
+    templates.set(strings, template)
+  }
+  else {
+    var template = /** @type {Template} */ (templates.get(strings))
   }
 
-  // Transform pug AST into Mithril v0-flavoured virtual DOM, hydrating as we go along
-  var vdom  = ( function pug_to_vdom( node ){
-    if( node.type == 'Block' )
-      return node.nodes.map( pug_to_vdom )
+  return template(interpolations)
+}
 
-    else if( node.type == 'Tag' ){
-      if( /^emjay\d+$/.test( node.name ) )
-        return hydrate( node.name )
+/**
+ * @arg {undefined | string}         [tag]
+ * @arg {undefined | string | array} [children]
+ * @arg {undefined | object}         [attrs]
+ * @returns m.Vnode
+ */
+function vnode(tag, children, attrs){
+  return {
+    /** @type {undefined | string | m.Component} */
+    tag      : tag,
+    /** @type {undefined | string | number} */
+    key      : attrs?.key,
+    /** @type {object} */
+    attrs    : attrs,
+    /** @type {undefined | string | array} */
+    children : children,
+    /** @type {undefined | string} */
+    text     : undefined,
+    /** @type {undefined | Node} */
+    dom      : undefined,
+    /** @type {undefined | number} */
+    domSize  : undefined,
+    /** @type {undefined | object} */
+    state    : undefined,
+    /** @type {undefined | object} */
+    events   : undefined,
+    /** @type {undefined | Vdom} */
+    instance : undefined,
+  }
+}
 
-      else
-        return {
-          tag      : hydrate( node.name ),
-          attrs    : attrs_to_hash( node.attrs, hydrate ),
-          children : node.block.nodes.map( pug_to_vdom )
-        }
-    }
+/**
+ * @arg {array} attributes
+ * @returns {object | undefined}
+*/
+function attribute(attributes){
+  if(!attributes.length)
+    return
+
+  const dict    = {}
+  const classes = new Set
+
+  for(let {name, val} of attributes){
+    if(typeof val === 'string' && val.startsWith(`'`) && val.endsWith(`'`))
+      val = val.slice(1, -1)
+
+    if(name === 'class')
+      classes.add(val)
 
     else
-      return hydrate( node.val ) || ''
-  } )(
-    pugParser( pugLexer( pug_template ) )
-  )
+      dict[name] = val
+  }
 
-  // Pug always produces an array, but Mithril v0 lower-order components must produce a single DOM root
-  if( 'length' in vdom && vdom.length === 1 )
-    return vdom[ 0 ]
+  if(classes.size)
+    dict.className = Array.from(classes.values()).join(' ')
 
-  else
-    return vdom
+  return dict
+}
+
+/**
+ * @arg {TemplateStringsArray} strings
+ * @returns {Template}
+ */
+export function construct(strings){
+  let dynamism = strings.length - 1
+
+  if(dynamism === 0){
+    const tokens = lex(strings[0])
+
+    const ast    = parse(tokens)
+
+    const vdom   = walk(ast,
+      function before(){},
+      function after(node, replace){
+        if(node.type === 'Block'){
+          if(!node.nodes?.length){
+            replace()
+          }
+          else if(replace.arrayAllowed){
+            replace(node.nodes)
+          }
+          else {
+            replace(vnode('[', node.nodes))
+          }
+        }
+        else if(node.type === 'Text'){
+          replace(vnode('#', node.val))
+        }
+        else if(node.type === 'Tag'){
+          replace(
+            vnode(
+              node.name,
+              node.block ? node.block?.tag === '[' ? node.block.children : [node.block] : undefined,
+              attribute(node.attrs.concat(node.attributeBlocks))
+            )
+           )
+        }
+      },
+    )
+
+    return function idempotentTemplate(){
+      return vdom
+    }
+  }
+
+  // 1. Flatten template input to a plain string with substition markers for interpolations
+  /** @type {string} */
+  let string   = strings[dynamism]
+
+  // The backwards iteration method is computationaly simpler
+  for(let i = dynamism; i > 0; i--)
+    string = /** @type {string} */ (strings.at(i) + sPrefix + i + string)
+
+  // 2. Tokenize the string
+  const tokens = lex(string)
+
+  // 2.1. While making semantic insertions to qualify templated interpolations
+  for(let i = 0; i < tokens.length; i++){
+    const token = tokens[i]
+  }
+
+  // 3. Convert the qualified Pug AST into Mithril vDOM
+  const ast     = parse(string)
+
+  return function template(){
+    return m('')
+  }
 }
