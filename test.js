@@ -166,3 +166,15 @@ describe('static input', () => {
     })
   })
 })
+
+describe('interpolations', () => {
+  describe('primitives', () => {
+    it('inline text', () => {
+      assertHtmlParity(
+        pug`p ${ 'Hello' }`,
+
+        m(`p`, `Hello`),
+      )
+    })
+  })
+})
