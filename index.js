@@ -81,7 +81,6 @@ export function construct(strings){
  * @returns {Vnode}
  **/
 function process(string){
-  // @ts-expect-error
   // Don't understand why Typescript can't parse the reducer logic here
   return [stripIndent, lex, parse, transform].reduce((input, visitor) => visitor(input), string)
 }
@@ -173,8 +172,6 @@ function attribute(attributes){
 function vnode(tag, children, attrs){
   return {
     /** @type {undefined | string} */
-    // @ts-expect-error
-    // Mithril type can allow components - out of scope for template runtime
     tag      : tag,
     /** @type {undefined | string | number} */
     key      : attrs?.key,
@@ -217,26 +214,31 @@ function substitute(input, interpolations){
   if(typeof input.children === 'string'){
     const text = input.children
 
-    if(substitutionRegExp.test(input.children)){
-      // ...So we explode the children into an array and replace piecemeal
-      const matches  = Array.from(input.children.matchAll(substitutionRegExp))
+    if(new RegExp(substitutionRegExp).test(input.children)){
+      // ...So we transform the node into a fragment
+      output.tag = '['
+
+      const matches  = Array.from(input.children.matchAll(new RegExp(substitutionRegExp)))
       const children = []
 
       let lastIndex = 0
 
       for(const match of matches){
         children.push(
-          text.substring(lastIndex, match['indices'].at(0).at(0))
-        )
-        children.push(
-          interpolations.at(Number(match.at(1)))
+          vnode('#', text.substring(lastIndex, match.indices.at(0).at(0)))
         )
 
-        lastIndex = match['indices'].at(0).at(1)
+        const interpolation = interpolations.at(Number(match.at(1)))
+
+        children.push(
+          typeof interpolation === 'string' ? vnode('#', interpolation) : interpolation
+        )
+
+        lastIndex = match.indices.at(0).at(1)
       }
 
       children.push(
-        text.substring(lastIndex)
+        vnode('#', text.substring(lastIndex))
       )
 
       output.children = children
@@ -250,9 +252,9 @@ function substitute(input, interpolations){
     const attrs = {}
 
     attributeLoop: for(let [key, value] of Object.entries(input.attrs)){
-      if(substitutionRegExp.test(key)){
+      if(new RegExp(substitutionRegExp).test(key)){
         const interpolation = interpolations.at(
-          Number(/** @type {RegExpExecArray} */(substitutionRegExp.exec(key)).at(1))
+          Number(new RegExp(substitutionRegExp).exec(key).at(1))
         )
 
         if(value === true){
@@ -277,9 +279,9 @@ function substitute(input, interpolations){
       }
 
       // Simple case, mere value interpolation
-      if(substitutionRegExp.test(value)){
+      if(new RegExp(substitutionRegExp).test(value)){
         output.attrs[key] = interpolations.at(
-          Number(/** @type {RegExpExecArray} */(substitutionRegExp.exec(value)).at(1))
+          Number(new RegExp(substitutionRegExp).exec(value).at(1))
         )
       }
       // No substitution
