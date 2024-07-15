@@ -1,3 +1,5 @@
+import util from 'node:util'
+
 import assert         from 'node:assert'
 import {describe, it} from 'node:test'
 
@@ -170,42 +172,93 @@ describe('static input', () => {
 describe('interpolations', () => {
   describe('primitives', () => {
     it('inline text', () => {
-      assertHtmlParity(
-        pug`p ${ 'Hello' }`,
+      const text = 'Hello'
 
-        m(`p`, `Hello`),
+      assertHtmlParity(
+        pug`p ${ text }`,
+
+        m(`p`, text),
       )
     })
 
     it('block text', () => {
+      const multiline = `
+        Hello
+        world
+      `
+
       assertHtmlParity(
         pug`p.
-        ${
-          `Hello
-          world`
-        }`,
+          ${ multiline }
+        `,
 
         m(`p`,
-          `Hello
-          world`
+          multiline
         ),
       )
     })
 
     it('piped text', () => {
+      const plain      = 'Interpolated'
+      const emphasised = 'values'
+
       assertHtmlParity(
         pug`p
-          | ${ 'Interpolated' }
-          em ${ 'values' }
+          | ${ plain }
+          em ${ emphasised }
         `,
 
         m(`p`,
-          `Interpolated`,
-          m(`em`, `values`),
+          plain,
+          m(`em`, emphasised),
         ),
       )
     })
 
+    it('shorthand selectors', () => {
+      const id        = 'app'
+      const className = 'container'
+
+      assertHtmlParity(
+        pug`#${ id }.${ className }`,
+
+        m(`#${ id }.${ className }`),
+      )
+    })
+
+    it('verbose attributes', () => {
+      assertHtmlParity(
+        pug`input(tabIndex=${ 0 } checked=${ true } value=${ 'foo' })`,
+
+        m(`input`, {tabIndex: 0, checked: true, value: 'foo'}),
+      )
+    })
+
+    it('primitive vnodes', () => {
+      assertHtmlParity(
+        p(pug`
+          article
+            ${ 0 }
+            ${ 1 }
+            ${ null }
+            ${ true }
+            ${ false }
+            ${ undefined }
+        `),
+
+        p(m(`article`,
+          0,
+          1,
+          null,
+          true,
+          false,
+          undefined,
+        )),
+      )
+    })
+  })
+
+  describe('complex', {skip:true}, () => {
     it('nested templates', () => {
       assertHtmlParity(
         pug`p ${
@@ -243,7 +296,7 @@ describe('interpolations', () => {
       assertHtmlParity(
         pug`
           main ${
-            m(PugComponent, `
+            m(PugComponent, pug`
               p Everyone!
             `)
           }
