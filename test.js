@@ -176,5 +176,85 @@ describe('interpolations', () => {
         m(`p`, `Hello`),
       )
     })
+
+    it('block text', () => {
+      assertHtmlParity(
+        pug`p.
+        ${
+          `Hello
+          world`
+        }`,
+
+        m(`p`,
+          `Hello
+          world`
+        ),
+      )
+    })
+
+    it('piped text', () => {
+      assertHtmlParity(
+        pug`p
+          | ${ 'Interpolated' }
+          em ${ 'values' }
+        `,
+
+        m(`p`,
+          `Interpolated`,
+          m(`em`, `values`),
+        ),
+      )
+    })
+
+    it('nested templates', () => {
+      assertHtmlParity(
+        pug`p ${
+          pug`em
+            | Pugs within pugs
+          `
+        }`,
+
+        m(`p`,
+          m(`em`,
+            `Pugs within pugs`
+          )
+        ),
+      )
+    })
+
+    it('nested components', () => {
+      const PugComponent = {
+        view({children}){
+          return pug`
+            h1 Welcome
+            ${ children }
+          `
+        }
+      }
+      const MithrilComponent = {
+        view({children}){
+          return [
+            m(`h1`, `Welcome`),
+            children,
+          ]
+        }
+      }
+
+      assertHtmlParity(
+        pug`
+          main ${
+            m(PugComponent, `
+              p Everyone!
+            `)
+          }
+        `,
+
+        m(`main`,
+          m(MithrilComponent,
+            m(`p`, `Everyone!`)
+          )
+        ),
+      )
+    })
   })
 })
