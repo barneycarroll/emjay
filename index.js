@@ -49,34 +49,80 @@ export default function emjay(strings, ...interpolations){
 }
 
 /**
- * @arg {undefined | string}         [tag]
- * @arg {undefined | string | array} [children]
- * @arg {undefined | object}         [attrs]
- * @returns m.Vnode
+ * @arg {TemplateStringsArray} strings
+ * @returns {Template}
  */
-function vnode(tag, children, attrs){
-  return {
-    /** @type {undefined | string | Component} */
-    tag      : tag,
-    /** @type {undefined | string | number} */
-    key      : attrs?.key,
-    /** @type {object} */
-    attrs    : attrs,
-    /** @type {undefined | string | array} */
-    children : children,
-    /** @type {undefined | string} */
-    text     : undefined,
-    /** @type {undefined | Node} */
-    dom      : undefined,
-    /** @type {undefined | number} */
-    domSize  : undefined,
-    /** @type {undefined | object} */
-    state    : undefined,
-    /** @type {undefined | object} */
-    events   : undefined,
-    /** @type {undefined | Vdom} */
-    instance : undefined,
+export function construct(strings){
+  let dynamism = strings.length - 1
+
+  // Optimal path: no substitutions,
+  // entire vtree is processed once, cached, and returned directly
+  if(dynamism === 0){
+    const vdom = process(strings[0])
+
+    return function idempotentTemplate(){
+      return vdom
+    }
   }
+
+  /** @type {string} */
+  let string = strings[dynamism]
+
+  for(let i = dynamism; i > 0; i--)
+    string = /** @type {string} */ (strings.at(i) + sPrefix + i + string)
+
+  const vdom = process(string)
+
+  return function dynamicTemplate(interpolations){
+    // Loop over vdom structure,
+    // Creating new reference identity for each node,
+    // Substituting interpolations
+
+    return vdom
+  }
+}
+
+function process(string){
+  return [stripIndent, lex, parse, transform].reduce((input, visitor) => visitor(input), string)
+}
+
+/**
+ * @arg {object} ast
+ * @returns {Vdom}
+ */
+function transform(ast){
+  return walk(ast,
+    function before(){},
+    function after(node, replace){
+      if(node.type === 'Block'){
+        if(!node.nodes?.length)
+          replace()
+
+        else if(replace.arrayAllowed)
+          replace(node.nodes)
+
+        else if(node.nodes.length === 1)
+          replace(node.nodes[0])
+
+        else
+          replace(vnode('[', node.nodes))
+      }
+      else if(node.type === 'Text'){
+        replace(vnode('#', node.val))
+      }
+      else if(node.type === 'Tag'){
+        replace(
+          vnode(
+            node.name,
+
+            node.block ? node.block?.tag === '[' ? node.block.children : [node.block] : undefined,
+
+            attribute(node.attrs.concat(node.attributeBlocks)),
+          )
+         )
+      }
+    },
+  )
 }
 
 /**
@@ -108,71 +154,32 @@ function attribute(attributes){
 }
 
 /**
- * @arg {TemplateStringsArray} strings
- * @returns {Template}
+ * @arg {undefined | string}         [tag]
+ * @arg {undefined | string | array} [children]
+ * @arg {undefined | object}         [attrs]
+ * @returns m.Vnode
  */
-export function construct(strings){
-  let dynamism = strings.length - 1
-
-  if(dynamism === 0){
-    const tokens = lex(stripIndent(strings[0]))
-
-    const ast    = parse(tokens)
-
-    const vdom   = walk(ast,
-      function before(){},
-      function after(node, replace){
-        if(node.type === 'Block'){
-          if(!node.nodes?.length){
-            replace()
-          }
-          else if(replace.arrayAllowed){
-            replace(node.nodes)
-          }
-          else {
-            replace(vnode('[', node.nodes))
-          }
-        }
-        else if(node.type === 'Text'){
-          replace(vnode('#', node.val))
-        }
-        else if(node.type === 'Tag'){
-          replace(
-            vnode(
-              node.name,
-              node.block ? node.block?.tag === '[' ? node.block.children : [node.block] : undefined,
-              attribute(node.attrs.concat(node.attributeBlocks))
-            )
-           )
-        }
-      },
-    )
-
-    return function idempotentTemplate(){
-      return vdom
-    }
-  }
-
-  // 1. Flatten template input to a plain string with substition markers for interpolations
-  /** @type {string} */
-  let string   = strings[dynamism]
-
-  // The backwards iteration method is computationaly simpler
-  for(let i = dynamism; i > 0; i--)
-    string = /** @type {string} */ (strings.at(i) + sPrefix + i + string)
-
-  // 2. Tokenize the string
-  const tokens = lex(string)
-
-  // 2.1. While making semantic insertions to qualify templated interpolations
-  for(let i = 0; i < tokens.length; i++){
-    const token = tokens[i]
-  }
-
-  // 3. Convert the qualified Pug AST into Mithril vDOM
-  const ast     = parse(string)
-
-  return function template(){
-    return ast
+function vnode(tag, children, attrs){
+  return {
+    /** @type {undefined | string | Component} */
+    tag      : tag,
+    /** @type {undefined | string | number} */
+    key      : attrs?.key,
+    /** @type {object} */
+    attrs    : attrs,
+    /** @type {undefined | string | array} */
+    children : children,
+    /** @type {undefined | string} */
+    text     : undefined,
+    /** @type {undefined | Node} */
+    dom      : undefined,
+    /** @type {undefined | number} */
+    domSize  : undefined,
+    /** @type {undefined | object} */
+    state    : undefined,
+    /** @type {undefined | object} */
+    events   : undefined,
+    /** @type {undefined | Vdom} */
+    instance : undefined,
   }
 }
