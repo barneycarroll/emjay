@@ -210,15 +210,39 @@ function substitute(input, interpolations){
   // We need to create new objects in order to comply with Mithrils diffing algorithm
   const output = {...input}
 
-  // Any kind of vdom interpolation will be encoded as a mere text substitution
-  if(typeof input.children === 'string'){
-    const text = input.children
+  // We don't allow interpolated element tag names; assume grammatical mix-up instead:
+  // What was interpreted as a tag name was intended as a text or vdom substitution
+  if(typeof output.tag === 'string' && new RegExp(substitutionRegExp).test(output.tag)){
+    const interpolation = interpolations.at(
+      Number(new RegExp(substitutionRegExp).exec(output.tag).at(1))
+    )
+    const substitution =
+    (
+      typeof interpolation === 'string'
+    ||
+      typeof interpolation === 'number'
+    )
+    ? vnode('#', interpolation)
+    : interpolation
 
-    if(new RegExp(substitutionRegExp).test(input.children)){
+    if(output.children?.length){
+      output.tag = '['
+
+      output.children.unshift(substitution)
+    }
+    else
+      return substitution
+  }
+
+  // Any kind of vdom interpolation will be encoded as a mere text substitution
+  if(typeof output?.children === 'string'){
+    const text = output.children
+
+    if(new RegExp(substitutionRegExp).test(text)){
       // ...So we transform the node into a fragment
       output.tag = '['
 
-      const matches  = Array.from(input.children.matchAll(new RegExp(substitutionRegExp)))
+      const matches  = Array.from(text.matchAll(new RegExp(substitutionRegExp)))
       const children = []
 
       let lastIndex = 0
@@ -244,14 +268,14 @@ function substitute(input, interpolations){
       output.children = children
     }
   }
-  else if(Array.isArray(input.children)){
-    output.children = input.children.map(child => substitute(child, interpolations))
+  else if(Array.isArray(output?.children)){
+    output.children = output.children.flatMap(child => substitute(child, interpolations))
   }
 
-  if(input.attrs){
+  if(output?.attrs){
     const attrs = {}
 
-    attributeLoop: for(let [key, value] of Object.entries(input.attrs)){
+    attributeLoop: for(let [key, value] of Object.entries(output.attrs)){
       if(new RegExp(substitutionRegExp).test(key)){
         const interpolation = interpolations.at(
           Number(new RegExp(substitutionRegExp).exec(key).at(1))
@@ -280,13 +304,13 @@ function substitute(input, interpolations){
 
       // Simple case, mere value interpolation
       if(new RegExp(substitutionRegExp).test(value)){
-        output.attrs[key] = interpolations.at(
+        attrs[key] = interpolations.at(
           Number(new RegExp(substitutionRegExp).exec(value).at(1))
         )
       }
       // No substitution
       else {
-        output.attrs[key] = value
+        attrs[key] = value
       }
     }
 

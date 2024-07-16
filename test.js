@@ -3,10 +3,6 @@ import util from 'node:util'
 import assert         from 'node:assert'
 import {describe, it} from 'node:test'
 
-import {html}    from 'common-tags'
-import lexer     from 'pug-lexer'
-import parser    from 'pug-parser'
-
 import './mock_dom.js'
 
 import m   from 'mithril'
@@ -236,7 +232,7 @@ describe('interpolations', () => {
 
     it('primitive vnodes', () => {
       assertHtmlParity(
-        p(pug`
+        pug`
           article
             ${ 0 }
             ${ 1 }
@@ -244,21 +240,21 @@ describe('interpolations', () => {
             ${ true }
             ${ false }
             ${ undefined }
-        `),
+        `,
 
-        p(m(`article`,
+        m(`article`,
           0,
           1,
           null,
           true,
           false,
           undefined,
-        )),
+        ),
       )
     })
   })
 
-  describe('complex', {skip:true}, () => {
+  describe('complex', () => {
     it('nested templates', () => {
       assertHtmlParity(
         pug`p ${
