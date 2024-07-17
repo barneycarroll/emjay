@@ -71,7 +71,7 @@ export function construct(strings){
   const vdom = process(string)
 
   return function dynamicTemplate(interpolations){
-    return substitute(vdom, interpolations)
+    return substitute(vdom, interpolations.map(normalize))
   }
 }
 
@@ -216,14 +216,7 @@ function substitute(input, interpolations){
     const interpolation = interpolations.at(
       Number(new RegExp(substitutionRegExp).exec(output.tag).at(1))
     )
-    const substitution =
-    (
-      typeof interpolation === 'string'
-    ||
-      typeof interpolation === 'number'
-    )
-    ? vnode('#', interpolation)
-    : interpolation
+    const substitution = normalize(interpolation)
 
     if(output.children?.length){
       output.tag = '['
@@ -318,4 +311,16 @@ function substitute(input, interpolations){
   }
 
   return output
+}
+
+/**
+ * Replicate Mithril's internal descendant normalization
+ * @arg {{children?: string | array | undefined}} node
+ * @returm {Vnode}
+ */
+function normalize(node){
+	// if (Array.isArray(node)) return vnode('[', node.children?.map?.(normalize))
+	if (node == null || typeof node === 'boolean') return null
+	if (typeof node === 'object') return node
+	return vnode('#', String(node))
 }
