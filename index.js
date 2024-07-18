@@ -216,14 +216,7 @@ function substitute(input, interpolations){
     const interpolation = interpolations.at(
       Number(new RegExp(substitutionRegExp).exec(output.tag).at(1))
     )
-    const substitution =
-    (
-      typeof interpolation === 'string'
-    ||
-      typeof interpolation === 'number'
-    )
-    ? vnode('#', interpolation)
-    : interpolation
+    const substitution = normalize(interpolation)
 
     if(output.children?.length){
       output.tag = '['
@@ -254,9 +247,7 @@ function substitute(input, interpolations){
 
         const interpolation = interpolations.at(Number(match.at(1)))
 
-        children.push(
-          typeof interpolation === 'string' ? vnode('#', interpolation) : interpolation
-        )
+        children.push(normalize(interpolation))
 
         lastIndex = match.indices.at(0).at(1)
       }
@@ -318,4 +309,18 @@ function substitute(input, interpolations){
   }
 
   return output
+}
+
+function normalize(interpolation){
+  if(interpolation == null || typeof interpolation === 'boolean')
+    return null
+
+  else if(Array.isArray(interpolation))
+    return vnode('[', interpolation)
+
+  else if(typeof interpolation === 'string' || typeof interpolation === 'number')
+    return vnode('#', interpolation)
+
+  else
+    return interpolation
 }
