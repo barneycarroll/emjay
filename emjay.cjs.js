@@ -1,8 +1,11 @@
+'use strict';
+
+var lex = require('pug-lexer');
+var parse = require('pug-parser');
+var walk = require('pug-walk');
+var commonTags = require('common-tags');
+
 // @ts-check
-import lex           from 'pug-lexer'
-import parse         from 'pug-parser'
-import walk          from 'pug-walk'
-import {stripIndent} from 'common-tags'
 
 /**
  * Mithril types
@@ -17,14 +20,14 @@ import {stripIndent} from 'common-tags'
  * Used to pass a plain string to Pug lexer & parser,
  * then replaced with interpolations in Mithril vdom construction.
  */
-const substitutionPrefix = 'emjay_substitution'
-const substitutionRegExp = /emjay_substitution(\d+)/dg
+const substitutionPrefix = 'emjay_substitution';
+const substitutionRegExp = /emjay_substitution(\d+)/dg;
 
 /**
  * Cache Pug lexing and parsing per template
  * @type {WeakMap.<TemplateStringsArray, Template>}
  */
-const templates = new WeakMap
+const templates = new WeakMap;
 
 /**
  * Convert a Pug template literal into Mithril virtual DOM
@@ -32,14 +35,14 @@ const templates = new WeakMap
  * @arg {any[]}                interpolations
  * @returns {Vdom}
  */
-export default function emjay(strings, ...interpolations){
+function emjay(strings, ...interpolations){
   if(!templates.has(strings)){
-    var template = construct(strings)
+    var template = construct(strings);
 
-    templates.set(strings, template)
+    templates.set(strings, template);
   }
   else {
-    var template = /** @type {Template} */ (templates.get(strings))
+    var template = /** @type {Template} */ (templates.get(strings));
   }
 
   return template(interpolations)
@@ -50,12 +53,12 @@ export default function emjay(strings, ...interpolations){
  * @returns {Template}
  */
 function construct(strings){
-  let dynamism = strings.length - 1
+  let dynamism = strings.length - 1;
 
   // Optimal path: no substitutions,
   // entire vtree is processed once, cached, and returned directly
   if(dynamism === 0){
-    const vdom = process(strings[0])
+    const vdom = process(strings[0]);
 
     return function idempotentTemplate(){
       return vdom
@@ -63,12 +66,12 @@ function construct(strings){
   }
 
   /** @type {string} */
-  let string = strings[dynamism]
+  let string = strings[dynamism];
 
   for(let i = dynamism - 1; i >= 0; i--)
-    string = /** @type {string} */ (strings.at(i) + substitutionPrefix + i + string)
+    string = /** @type {string} */ (strings.at(i) + substitutionPrefix + i + string);
 
-  const vdom = process(string)
+  const vdom = process(string);
 
   return function dynamicTemplate(interpolations){
     return substitute(vdom, interpolations)
@@ -82,7 +85,7 @@ function construct(strings){
  **/
 function process(string){
   // Don't understand why Typescript can't parse the reducer logic here
-  return [stripIndent, lex, parse, transform].reduce((input, visitor) => visitor(input), string)
+  return [commonTags.stripIndent, lex, parse, transform].reduce((input, visitor) => visitor(input), string)
 }
 
 /**
@@ -100,22 +103,22 @@ function transform(ast){
       if(node.type === 'Block'){
         // If a block has no contents, simply remove it
         if(!node.nodes?.length)
-          replace()
+          replace();
 
         // We needn't express a Block if we can simply express an array
         else if(replace.arrayAllowed)
-          replace(node.nodes)
+          replace(node.nodes);
 
         // A single child should take the place of the Block expression
         else if(node.nodes.length === 1)
-          replace(node.nodes[0])
+          replace(node.nodes[0]);
 
         // Other cases are legitimate :)
         else
-          replace(vnode('[', node.nodes))
+          replace(vnode('[', node.nodes));
       }
       else if(node.type === 'Text'){
-        replace(vnode('#', node.val))
+        replace(vnode('#', node.val));
       }
       else if(node.type === 'Tag'){
         replace(
@@ -127,7 +130,7 @@ function transform(ast){
 
             attribute(node.attrs),
           )
-         )
+         );
       }
     },
   )
@@ -141,23 +144,23 @@ function attribute(attributes){
   if(!attributes.length)
     return
 
-  const dict    = {}
-  const classes = new Set
+  const dict    = {};
+  const classes = new Set;
 
   for(let {name, val} of attributes){
     // For some reason, Pug double-quotes shorthand ids and classes
     if(typeof val === 'string' && val.startsWith(`'`) && val.endsWith(`'`))
-      val = val.slice(1, -1)
+      val = val.slice(1, -1);
 
     if(name === 'class')
-      classes.add(val)
+      classes.add(val);
 
     else
-      dict[name] = val
+      dict[name] = val;
   }
 
   if(classes.size)
-    dict.className = Array.from(classes.values()).join(' ')
+    dict.className = Array.from(classes.values()).join(' ');
 
   return dict
 }
@@ -208,20 +211,20 @@ function vnode(tag, children, attrs){
  */
 function substitute(input, interpolations){
   // We need to create new objects in order to comply with Mithrils diffing algorithm
-  const output = {...input}
+  const output = {...input};
 
   // We don't allow interpolated element tag names; assume grammatical mix-up instead:
   // What was interpreted as a tag name was intended as a text or vdom substitution
   if(typeof output.tag === 'string' && new RegExp(substitutionRegExp).test(output.tag)){
     const interpolation = interpolations.at(
       Number(new RegExp(substitutionRegExp).exec(output.tag).at(1))
-    )
-    const substitution = normalize(interpolation)
+    );
+    const substitution = normalize(interpolation);
 
     if(output.children?.length){
-      output.tag = '['
+      output.tag = '[';
 
-      output.children.unshift(substitution)
+      output.children.unshift(substitution);
     }
     else
       return substitution
@@ -229,67 +232,67 @@ function substitute(input, interpolations){
 
   // Any kind of vdom interpolation will be encoded as a mere text substitution
   if(typeof output?.children === 'string'){
-    const text = output.children
+    const text = output.children;
 
     if(new RegExp(substitutionRegExp).test(text)){
       // ...So we transform the node into a fragment
-      output.tag = '['
+      output.tag = '[';
 
-      const matches  = Array.from(text.matchAll(new RegExp(substitutionRegExp)))
-      const children = []
+      const matches  = Array.from(text.matchAll(new RegExp(substitutionRegExp)));
+      const children = [];
 
-      let lastIndex = 0
+      let lastIndex = 0;
 
       for(const match of matches){
         children.push(
           vnode('#', text.substring(lastIndex, match.indices.at(0).at(0)))
-        )
+        );
 
-        const interpolation = interpolations.at(Number(match.at(1)))
+        const interpolation = interpolations.at(Number(match.at(1)));
 
-        children.push(normalize(interpolation))
+        children.push(normalize(interpolation));
 
-        lastIndex = match.indices.at(0).at(1)
+        lastIndex = match.indices.at(0).at(1);
       }
 
       children.push(
         vnode('#', text.substring(lastIndex))
-      )
+      );
 
-      output.children = children
+      output.children = children;
     }
   }
   else if(Array.isArray(output?.children)){
-    output.children = output.children.flatMap(child => substitute(child, interpolations))
+    output.children = output.children.flatMap(child => substitute(child, interpolations));
   }
 
   if(output?.attrs){
-    const attrs = {}
+    const attrs = {};
 
     attributeLoop: for(let [key, value] of Object.entries(output.attrs)){
       if(new RegExp(substitutionRegExp).test(key)){
         const interpolation = interpolations.at(
           Number(new RegExp(substitutionRegExp).exec(key).at(1))
-        )
+        );
 
         if(value === true){
           if(typeof interpolation === 'function' && interpolation.name){
-            attrs[interpolation.name] = interpolation
+            attrs[interpolation.name] = interpolation;
           }
           else if(typeof interpolation === 'object'){
-            for(const [key, value] of Object.entries(interpolation)){
-              attrs[key] = value
+            for(const [key, value] of interpolation){
+              attrs[key] = value;
             }
           }
           else {
-            attrs[key] = true
+            attrs[key] = true;
           }
 
           // Subsitution complete, move on
           continue attributeLoop
         }
         else {
-          key = interpolation
+          key = interpolation;
         }
       }
 
@@ -297,15 +300,15 @@ function substitute(input, interpolations){
       if(new RegExp(substitutionRegExp).test(value)){
         attrs[key] = interpolations.at(
           Number(new RegExp(substitutionRegExp).exec(value).at(1))
-        )
+        );
       }
       // No substitution
       else {
-        attrs[key] = value
+        attrs[key] = value;
       }
     }
 
-    output.attrs = attrs
+    output.attrs = attrs;
   }
 
   return output
@@ -324,3 +327,5 @@ function normalize(interpolation){
   else
     return interpolation
 }
+
+module.exports = emjay;
