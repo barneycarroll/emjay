@@ -16,8 +16,17 @@ const htmlOf = vdom => {
   return window.document.body.innerHTML
 }
 
-const assertHtmlParity = (...vdom) =>
-  assert.equal(...vdom.map(htmlOf))
+const assertHtmlParity = (a, b) => {
+  const {body} = window.document
+
+  delete body.vnodes
+
+  m.render(body, [m('div', a), m('div', b)])
+
+  assert(
+    body.children[0].isEqualNode(body.children[1])
+  )
+}
 
 describe('static input', () => {
   describe('single elements', () => {
@@ -303,6 +312,40 @@ describe('interpolations', () => {
             m(`p`, `Everyone!`)
           )
         ),
+      )
+    })
+
+    it('attribute dictionary', () => {
+      assertHtmlParity(
+        // Order is reversed for some reason, check fails
+        // when attributes assigned in different order.
+        pug`main(${{ id: 'id', class: 'className'}})`,
+
+        m(`main`, {class: 'className', id: 'id'}),
+      )
+    })
+
+    it('event handler attributes', () => {
+      const value = Symbol()
+
+      const pugVdom = pug`button(onclick=${ () => value })`
+      const mVdom   = m('button', {onclick: () => value})
+
+      assertHtmlParity(
+        pugVdom,
+        mVdom,
+      )
+
+      assert.equal(
+        pugVdom.events.onclick(),
+        value
+      )
+    })
+
+    it('style attributes', () => {
+      assertHtmlParity(
+        pug`header(style=${{border: '1px solid', background: 'red'}})`,
+        m(`header`, {style: {border: '1px solid', background: 'red'}}),
       )
     })
   })
