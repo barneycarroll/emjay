@@ -32,7 +32,7 @@ const templates = new WeakMap
  * @arg {any[]}                interpolations
  * @returns {Vdom}
  */
-export default function emjay(strings, ...interpolations){
+export default function pug(strings, ...interpolations){
   if(!templates.has(strings)){
     var template = construct(strings)
 
@@ -75,6 +75,8 @@ function construct(strings){
   }
 }
 
+pug.construct = construct
+
 /**
  * Takes a Pug source string and passes through the necessary steps to produce Mithril virtual DOM
  * @arg {string} string
@@ -84,6 +86,8 @@ function process(string){
   // Don't understand why Typescript can't parse the reducer logic here
   return [stripIndent, lex, parse, transform].reduce((input, visitor) => visitor(input), string)
 }
+
+pug.process = process
 
 /**
  * Converts a Pug abstract syntax tree object into a Mithril virtual DOM tree
@@ -133,6 +137,8 @@ function transform(ast){
   )
 }
 
+pug.transform = transform
+
 /**
  * @arg {array} attributes
  * @returns {object | undefined}
@@ -162,6 +168,8 @@ function attribute(attributes){
   return dict
 }
 
+pug.attribute = attribute
+
 /**
  * Shorthand function for creating
  * @arg {undefined | string}         [tag]
@@ -178,7 +186,7 @@ function vnode(tag, children, attrs){
     /** @type {object} */
     attrs    : attrs,
     /** @type {undefined | string | array} */
-    children : children,
+    children : children || (typeof tag === 'string' && tag !== '#' && []) || children,
     /** @type {undefined | string} */
     text     : undefined,
     /** @type {undefined | Node} */
@@ -195,6 +203,8 @@ function vnode(tag, children, attrs){
     instance : undefined,
   }
 }
+
+pug.vnode = vnode
 
 /**
  * @typedef {(vnode: Vnode, replace: (vnode: Vnode) => {}) => {}} Visitor
@@ -218,7 +228,7 @@ function substitute(input, interpolations){
     )
     const substitution = normalize(interpolation)
 
-    if(output.children?.length){
+    if(Array.isArray(output.children) && output.children.length){
       output.tag = '['
 
       output.children.unshift(substitution)
@@ -260,6 +270,7 @@ function substitute(input, interpolations){
     }
   }
   else if(Array.isArray(output?.children)){
+    // @ts-expect-error
     output.children = output.children.flatMap(child => substitute(child, interpolations))
   }
 
@@ -278,31 +289,34 @@ function substitute(input, interpolations){
           }
           else if(typeof interpolation === 'object'){
             for(const [key, value] of Object.entries(interpolation)){
-              attrs[key] = value
+              if(key === 'key')
+                output.key = value
+
+              else
+                attrs[key] = value
             }
           }
-          else {
+          else
             attrs[key] = true
-          }
 
           // Subsitution complete, move on
           continue attributeLoop
         }
-        else {
+        else
           key = interpolation
-        }
       }
 
       // Simple case, mere value interpolation
-      if(new RegExp(substitutionRegExp).test(value)){
-        attrs[key] = interpolations.at(
+      if(new RegExp(substitutionRegExp).test(value))
+        attrs[key] = value = interpolations.at(
           Number(new RegExp(substitutionRegExp).exec(value).at(1))
         )
-      }
-      // No substitution
-      else {
+
+      if(key === 'key')
+        output.key = value
+
+      else
         attrs[key] = value
-      }
     }
 
     output.attrs = attrs
@@ -310,6 +324,8 @@ function substitute(input, interpolations){
 
   return output
 }
+
+pug.substitute = substitute
 
 function normalize(interpolation){
   if(interpolation == null || typeof interpolation === 'boolean')
@@ -319,8 +335,10 @@ function normalize(interpolation){
     return vnode('[', interpolation)
 
   else if(typeof interpolation === 'string' || typeof interpolation === 'number')
-    return vnode('#', interpolation)
+    return vnode('#', String(interpolation))
 
   else
     return interpolation
 }
+
+pug.normalize = normalize
