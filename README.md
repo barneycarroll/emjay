@@ -41,3 +41,27 @@ In the case of templates without interpolations, the output virtual DOM itself i
 Use the VSCode [Pug Template Literals](https://marketplace.visualstudio.com/items?itemName=zokugun.vscode-pug-template-literal) plugin for syntax highlighting (works on any template literal with the `pug` prefix).
 
 Read `tests.js` for usage / feature demonstration.
+
+### Divergence from Pug
+
+#### No interpolated element names, & lossy text delimiters 
+
+If Emjay encounters an interpolation where the Pug tokeniser would normally expect to find an element name (eg first non-whitespace entity on a new line), Emjay will instead defer to the interpolation value semantics, and treat string-like values as text node injections. This is to allow a more consistent and predictable interpretation of interpolations without explicit delimiters. By the same logic, interpolated strings, nullish values, component invocations and nested templates will be parsed even they are intended with a trailing `.` on the parent line, or on lines prefixed `|`. Text delimiters are still essential for static elements of template parsing and I recommend using them to indicate intent even if interpolated content overdetermines the actual logic.
+
+#### Forgiving whitespace 
+
+Emjay is reliant on and respectful of Pug whitespace rules, but allows two special exceptions owing to the critical difference that whereas Pug was designed to occupy entire files, Emjay is meant to be used in template literals within arbitrary source structures. 
+
+As such:
+
+##### Arbitrary indentation depth
+
+A template can start at any level of indentation appropriate to surrounding code structures; the rest of the template nesting semantics will be parsed as relative to the *second* line indentation, with the second line assumed to be nested under the first if both contain nodes. This is because the template parser cannot infer ‘equivalent’ indentation of its first line, only subsequent lines.
+
+##### Leading whitespace tolerance
+
+Unlike Pug, Emjay allows templates to start with a new line. This is helps legibility in multi-line templates, and is the only way to ensure explicit positional semantics (nested, or adjacent?) between two first lines with block level contents.
+
+##### Per-template indentation semantics
+
+Indentation semantics are determined per-template, so a template interpolated into a parent template has no obligation to ensure depth-alignment.
