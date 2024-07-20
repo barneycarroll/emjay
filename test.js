@@ -3,7 +3,7 @@ import util from 'node:util'
 import assert               from 'node:assert'
 import {
   beforeEach,
-  describe,
+  suite,
   mock,
   test,
 } from 'node:test'
@@ -32,8 +32,8 @@ beforeEach(() => {
   delete body.vnodes
 })
 
-describe('static input', () => {
-  describe('single elements', () => {
+suite('static input', () => {
+  suite('single elements', () => {
     test('plain', () => {
       assertNodeParity(
         pug`br`,
@@ -91,7 +91,7 @@ describe('static input', () => {
     })
   })
 
-  describe('structured content', () => {
+  suite('structured content', () => {
     test('block text', () => {
       assertNodeParity(
         pug`p.
@@ -178,8 +178,8 @@ describe('static input', () => {
   })
 })
 
-describe('interpolations', () => {
-  describe('primitives', () => {
+suite('interpolations', () => {
+  suite('primitives', () => {
     test('inline text', () => {
       const text = 'Hello'
 
@@ -267,7 +267,7 @@ describe('interpolations', () => {
     })
   })
 
-  describe('complex', () => {
+  suite('complex', () => {
     test('nested templates', () => {
       assertNodeParity(
         pug`p ${
@@ -346,7 +346,7 @@ describe('interpolations', () => {
       )
     })
 
-    test('style attributes', () => {
+    test('style attribute objects', () => {
       assertNodeParity(
         pug`header(style=${{border: '1px solid', background: 'red'}})`,
         m(`header`, {style: {border: '1px solid', background: 'red'}}),
@@ -355,7 +355,7 @@ describe('interpolations', () => {
   })
 })
 
-describe('special attributes', () => {
+suite('special attributes', async () => {
   test('`key` assignment', () => {
     const key = Date.now()
 
@@ -366,8 +366,8 @@ describe('special attributes', () => {
     )
   })
 
-  describe('lifecycle', () => {
-    `
+  test('lifecycle', async context => {
+    const sequence = `
       oninit
       oncreate
       onbeforeupdate
@@ -376,36 +376,74 @@ describe('special attributes', () => {
       onremove
     `
       .trim().split(/\s+/)
-      .map(key => {
-        test(key, () => {
-          const value = () => {}
 
-          assert.deepEqual(
-            pug`div(${ {[key] : value} })`,
-            m(`div`, {[key] : value}),
-          )
+    context.plan(
+      // Each hook checks the execution state of each other hook
+      sequence.length * (sequence.length - 1)
+      +
+      // We also check each hooks state after each of 3 render passes
+      sequence.length * 3
+    )
+
+    const {promise, resolve} = Promise.withResolvers()
+
+    const lifecycle = Object.fromEntries(
+      sequence.map((k1, i1) =>
+        [k1, mock.fn(() => {
+          context.test(k1, () => {
+            sequence.map((k2, i2) => {
+                  if(i2 < i1)
+                context.assert(
+                  lifecycle[k2].mock.callCount() === 1,
+                  `${k2} didn't execute before ${k1}`
+                )
+              else if(i2 > i1)
+                context.assert(
+                  lifecycle[k2].mock.callCount() === 0,
+                  `${k2} executed before ${k1}`
+                )
+
+              if('onremove' === k1 && k1 === k2)
+                resolve()
+            })
+          })
         })
-      })
-  })
-})
+      ])
+    )
 
-describe('updates', () => {
-})
+    m.render(body, pug`div(${ lifecycle })`)
 
-describe('caching', () => {
-  const oncreate = mock.fn()
-  const onupdate = mock.fn()
-
-  describe('static templates do not re-execute', () => {
-    m.render(body, pug`p${oncreate, onupdate}`)
-    m.render(body, pug`p${oncreate, onupdate}`)
-
-    test('`oncreate` called once', () => {
-      assert.equal(oncreate.mock.callCount(), 1)
+    context.test('first render triggers `oninit` & `oncreate`', () => {
+      context.assert(lifecycle.oninit        .mock.callCount() === 1)
+      context.assert(lifecycle.oncreate      .mock.callCount() === 1)
+      context.assert(lifecycle.onbeforeupdate.mock.callCount() === 0)
+      context.assert(lifecycle.onupdate      .mock.callCount() === 0)
+      context.assert(lifecycle.onbeforeremove.mock.callCount() === 0)
+      context.assert(lifecycle.onremove      .mock.callCount() === 0)
     })
 
-    test('`onupdate` not called', () => {
-      assert.equal(onupdate.mock.callCount(), 0)
+    m.render(body, pug`div(${ lifecycle })`)
+
+    context.test('second render triggers `onbeforeupdate` & `onupdate`', () => {
+      context.assert(lifecycle.oninit        .mock.callCount() === 1)
+      context.assert(lifecycle.oncreate      .mock.callCount() === 1)
+      context.assert(lifecycle.onbeforeupdate.mock.callCount() === 1)
+      context.assert(lifecycle.onupdate      .mock.callCount() === 1)
+      context.assert(lifecycle.onbeforeremove.mock.callCount() === 0)
+      context.assert(lifecycle.onremove      .mock.callCount() === 0)
     })
+
+    m.render(body, undefined)
+
+    context.test('third render triggers `onbeforeremove` & `onremove`', () => {
+      context.assert(lifecycle.oninit        .mock.callCount() === 1)
+      context.assert(lifecycle.oncreate      .mock.callCount() === 1)
+      context.assert(lifecycle.onbeforeupdate.mock.callCount() === 1)
+      context.assert(lifecycle.onupdate      .mock.callCount() === 1)
+      context.assert(lifecycle.onbeforeremove.mock.callCount() === 1)
+      context.assert(lifecycle.onremove      .mock.callCount() === 1)
+    })
+
+    return promise
   })
 })
