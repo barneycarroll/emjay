@@ -1,28 +1,24 @@
 {
-  "name"        : "emjay",
-  "version"     : "1.0.0",
-  "description" : "Convert Jade templates to Mithril virtual DOM structures",
-  "author"      : "Barney Carroll <barney.carroll@gmail.com>",
-  "license"     : "MIT",
-  "repository"  : {
-    "type" : "git",
-    "url"  : "git+https://github.com/barneycarroll/emjay.git"
+  "name": "emjay",
+  "version": "1.0.1",
+  "description": "Convert Jade templates to Mithril virtual DOM structures",
+  "author": "Barney Carroll <barney.carroll@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barneycarroll/emjay.git"
   },
-  "bugs"        : {
-    "url"  : "https://github.com/barneycarroll/emjay/issues"
+  "bugs": {
+    "url": "https://github.com/barneycarroll/emjay/issues"
   },
-
-  "type"    : "module",
-
-  "main"    : "emjay.cjs.js",
-  "module"  : "emjay.esm.js",
-  "browser" : "emjay.umd.js",
-
-  "scripts" : {
-    "test"  : "node test",
-    "build" : "rollup -c"
+  "type": "module",
+  "main": "emjay.cjs.js",
+  "module": "emjay.esm.js",
+  "browser": "emjay.umd.js",
+  "scripts": {
+    "test": "node test",
+    "build": "rollup -c"
   },
-
   "keywords": [
     "pug",
     "jade",
@@ -33,14 +29,12 @@
     "vdom",
     "converter"
   ],
-
   "dependencies": {
     "common-tags": "^1.8.2",
     "pug-lexer": "^5.0.1",
     "pug-parser": "^6.0.0",
     "pug-walk": "^2.0.0"
   },
-
   "devDependencies": {
     "@rollup/plugin-alias": "^5.1.0",
     "@rollup/plugin-commonjs": "^26.0.1",

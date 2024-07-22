@@ -44,13 +44,13 @@ Read `tests.js` for usage / feature demonstration.
 
 ### Divergence from Pug
 
-#### No interpolated element names, & lossy text delimiters 
+#### No interpolated element names, & lossy text delimiters
 
 If Emjay encounters an interpolation where the Pug tokeniser would normally expect to find an element name (eg first non-whitespace entity on a new line), Emjay will instead defer to the interpolation value semantics, and treat string-like values as text node injections. This is to allow a more consistent and predictable interpretation of interpolations without explicit delimiters. By the same logic, interpolated strings, nullish values, component invocations and nested templates will be parsed even they are intended with a trailing `.` on the parent line, or on lines prefixed `|`. Text delimiters are still essential for static elements of template parsing and I recommend using them to indicate intent even if interpolated content overdetermines the actual logic.
 
-#### Forgiving whitespace 
+#### Forgiving whitespace
 
-Emjay is reliant on and respectful of Pug whitespace rules, but allows two special exceptions owing to the critical difference that whereas Pug was designed to occupy entire files, Emjay is meant to be used in template literals within arbitrary source structures. 
+Emjay is reliant on and respectful of Pug whitespace rules, but allows two special exceptions owing to the critical difference that whereas Pug was designed to occupy entire files, Emjay is meant to be used in template literals within arbitrary source structures.
 
 As such:
 

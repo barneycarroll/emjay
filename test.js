@@ -1,26 +1,23 @@
 import util from 'node:util'
 
-import assert         from 'node:assert'
-import {describe, it} from 'node:test'
+import assert               from 'node:assert'
+import {
+  beforeEach,
+  suite,
+  mock,
+  test,
+} from 'node:test'
 
 import './mock_dom.js'
 
 import m   from 'mithril'
 import pug from './index.js'
 
-const htmlOf = vdom => {
-  m.render(window.document.body, vdom)
+const {body} = window.document
 
-  delete window.document.body.vnodes
-
-  return window.document.body.innerHTML
-}
-
-const assertHtmlParity = (a, b) => {
-  const {body} = window.document
-
-  delete body.vnodes
-
+// Takes two vnodes, renders them side by side,
+// and compares them with `isEqualNode`
+const assertNodeParity = (a, b) => {
   m.render(body, [m('div', a), m('div', b)])
 
   assert(
@@ -28,58 +25,65 @@ const assertHtmlParity = (a, b) => {
   )
 }
 
-describe('static input', () => {
-  describe('single elements', () => {
-    it('plain', () => {
-      assertHtmlParity(
+// Clear the virtual DOM cache before each test
+// To prevent subsequent renders unintentionally
+// diffing with previous
+beforeEach(() => {
+  delete body.vnodes
+})
+
+suite('static input', () => {
+  suite('single elements', () => {
+    test('plain', () => {
+      assertNodeParity(
         pug`br`,
 
         m(`br`),
       )
     })
 
-    it('shorthand class', () => {
-      assertHtmlParity(
+    test('shorthand class', () => {
+      assertNodeParity(
         pug`.class`,
 
         m(`.class`),
       )
     })
 
-    it('shorthand id', () => {
-      assertHtmlParity(
+    test('shorthand id', () => {
+      assertNodeParity(
         pug`#id`,
 
         m(`#id`),
       )
     })
 
-    it('verbose attributes', () => {
-      assertHtmlParity(
+    test('verbose attributes', () => {
+      assertNodeParity(
         pug`link(rel='stylesheet' href='/style.css')`,
 
         m(`link[rel='stylesheet'][href='/style.css']`),
       )
     })
 
-    it('shorthand boolean attributes', () => {
-      assertHtmlParity(
+    test('shorthand boolean attributes', () => {
+      assertNodeParity(
         pug`input(checked disabled)`,
 
         m(`input[checked][disabled]`),
       )
     })
 
-    it('inline text', () => {
-      assertHtmlParity(
+    test('inline text', () => {
+      assertNodeParity(
         pug`p Some text`,
 
         m(`p`, `Some text`),
       )
     })
 
-    it('kitchen sink', () => {
-      assertHtmlParity(
+    test('kitchen sink', () => {
+      assertNodeParity(
         pug`p#id.class1.class2(class='class3' foo=bar boolean) Some text`,
 
         m(`p#id.class1.class2[class="class3"][foo="bar"][boolean]`, `Some text`),
@@ -87,9 +91,9 @@ describe('static input', () => {
     })
   })
 
-  describe('structured content', () => {
-    it('block text', () => {
-      assertHtmlParity(
+  suite('structured content', () => {
+    test('block text', () => {
+      assertNodeParity(
         pug`p.
           Blocks
 
@@ -104,8 +108,8 @@ describe('static input', () => {
       )
     })
 
-    it('pipe text', () => {
-      assertHtmlParity(
+    test('pipe text', () => {
+      assertNodeParity(
         pug`p
             | Piped
             | text
@@ -119,8 +123,8 @@ describe('static input', () => {
       )
     })
 
-    it('adjacent elements', () => {
-      assertHtmlParity(
+    test('adjacent elements', () => {
+      assertNodeParity(
         pug`
           p Element one
           p Element two
@@ -133,8 +137,8 @@ describe('static input', () => {
       )
     })
 
-    it('nested elements', () => {
-      assertHtmlParity(
+    test('nested elements', () => {
+      assertNodeParity(
         pug`
           ol
             li
@@ -164,8 +168,8 @@ describe('static input', () => {
       )
     })
 
-    it('inline elements', () => {
-      assertHtmlParity(
+    test('inline elements', () => {
+      assertNodeParity(
         pug`h1: a(href='example.com') Nested link `,
 
         m(`h1`, m(`a[href=example.com]`, `Nested link`)),
@@ -174,25 +178,25 @@ describe('static input', () => {
   })
 })
 
-describe('interpolations', () => {
-  describe('primitives', () => {
-    it('inline text', () => {
+suite('interpolations', () => {
+  suite('primitives', () => {
+    test('inline text', () => {
       const text = 'Hello'
 
-      assertHtmlParity(
+      assertNodeParity(
         pug`p ${ text }`,
 
         m(`p`, text),
       )
     })
 
-    it('block text', () => {
+    test('block text', () => {
       const multiline = `
         Hello
         world
       `
 
-      assertHtmlParity(
+      assertNodeParity(
         pug`p.
           ${ multiline }
         `,
@@ -203,11 +207,11 @@ describe('interpolations', () => {
       )
     })
 
-    it('piped text', () => {
+    test('piped text', () => {
       const plain      = 'Interpolated'
       const emphasised = 'values'
 
-      assertHtmlParity(
+      assertNodeParity(
         pug`p
           | ${ plain }
           em ${ emphasised }
@@ -220,27 +224,27 @@ describe('interpolations', () => {
       )
     })
 
-    it('shorthand selectors', () => {
+    test('shorthand selectors', () => {
       const id        = 'app'
       const className = 'container'
 
-      assertHtmlParity(
+      assertNodeParity(
         pug`#${ id }.${ className }`,
 
         m(`#${ id }.${ className }`),
       )
     })
 
-    it('verbose attributes', () => {
-      assertHtmlParity(
+    test('verbose attributes', () => {
+      assertNodeParity(
         pug`input(tabIndex=${ 0 } checked=${ true } value=${ 'foo' })`,
 
         m(`input`, {tabIndex: 0, checked: true, value: 'foo'}),
       )
     })
 
-    it('primitive vnodes', () => {
-      assertHtmlParity(
+    test('primitive vnodes', () => {
+      assertNodeParity(
         pug`
           article
             ${ 0 }
@@ -263,9 +267,9 @@ describe('interpolations', () => {
     })
   })
 
-  describe('complex', () => {
-    it('nested templates', () => {
-      assertHtmlParity(
+  suite('complex', () => {
+    test('nested templates', () => {
+      assertNodeParity(
         pug`p ${
           pug`em
             | Pugs within pugs
@@ -280,7 +284,7 @@ describe('interpolations', () => {
       )
     })
 
-    it('nested components', () => {
+    test('nested components', () => {
       const PugComponent = {
         view({children}){
           return pug`
@@ -298,7 +302,7 @@ describe('interpolations', () => {
         }
       }
 
-      assertHtmlParity(
+      assertNodeParity(
         pug`
           main ${
             m(PugComponent, pug`
@@ -315,8 +319,8 @@ describe('interpolations', () => {
       )
     })
 
-    it('attribute dictionary', () => {
-      assertHtmlParity(
+    test('attribute dictionary', () => {
+      assertNodeParity(
         // Order is reversed for some reason, check fails
         // when attributes assigned in different order.
         pug`main(${{ id: 'id', class: 'className'}})`,
@@ -325,13 +329,13 @@ describe('interpolations', () => {
       )
     })
 
-    it('event handler attributes', () => {
+    test('event handler attributes', () => {
       const value = Symbol()
 
       const pugVdom = pug`button(onclick=${ () => value })`
       const mVdom   = m('button', {onclick: () => value})
 
-      assertHtmlParity(
+      assertNodeParity(
         pugVdom,
         mVdom,
       )
@@ -342,11 +346,175 @@ describe('interpolations', () => {
       )
     })
 
-    it('style attributes', () => {
-      assertHtmlParity(
+    test('`style` attribute objects', () => {
+      assertNodeParity(
         pug`header(style=${{border: '1px solid', background: 'red'}})`,
         m(`header`, {style: {border: '1px solid', background: 'red'}}),
       )
     })
+  })
+})
+
+suite('special attributes', () => {
+  test('`key` assignment', t => {
+    const key = Date.now()
+
+    t.assert.deepEqual(
+      pug`p(${ {key} })`,
+
+      m('p', {key}),
+    )
+  })
+
+  test('lifecycle', () => {
+    // These are all the lifecycle methods,
+    // in sequential order of execution
+    const sequence = [
+      // oninit & oncreate are executed in the first render
+      // before & after the subtree view is executed and persisted to DOM
+      'oninit',
+      'oncreate',
+      // onbeforeupdate & onupdate execute in subsequent renders
+      // before & after the subtree view is executed and persisted to DOM
+      'onbeforeupdate',
+      'onupdate',
+      // onbeforeupdate & onupdate execute when the entity is removed from view
+      // before & after the subtree view is executed and persisted to DOM
+      'onbeforeremove',
+      'onremove',
+    ]
+
+    // A dictionary to pass as attributes, each with a simple mock
+    const lifecycle = {
+      oninit         : mock.fn(),
+      oncreate       : mock.fn(),
+      onbeforeupdate : mock.fn(),
+      onupdate       : mock.fn(),
+      onbeforeremove : mock.fn(),
+      onremove       : mock.fn(),
+    }
+
+    // Returns an array of current call counts for the lifecycle attributes
+    const callCounts = () =>
+      sequence.map(key => lifecycle[key].mock.callCount())
+
+    m.render(body, pug`div(${ lifecycle })`)
+
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 0, 0, 0, 0],
+      'first render executes `oninit` & `oncreate`'
+    )
+
+    m.render(body, pug`div(${ lifecycle })`)
+
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 1, 1, 0, 0],
+      'second render executes `onbeforeupdate` & `onupdate`'
+    )
+
+    m.render(body, pug`div(${ lifecycle })`)
+
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 2, 2, 0, 0],
+      'third render re-executes `onbeforeupdate` & `onupdate`'
+    )
+
+    m.render(body, undefined)
+
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 2, 2, 1, 1],
+      'removal executes `onbeforeremove` & `onremove`'
+    )
+  })
+})
+
+suite('updates', () => {
+  test('new templates update DOM', () => {
+    m.render(body, pug`
+      p.
+        Some #[em content]
+    `)
+
+    const snapshot1 = {
+      p            : body.firstChild,
+      text         : body.firstChild.firstChild,
+      textContent  : body.firstChild.firstChild.data,
+      childElement : body.firstChild.lastElementChild,
+    }
+
+    m.render(body, pug`
+      p.
+        Different #[strong content]
+    `)
+
+    const snapshot2 = {
+      p            : body.firstChild,
+      text         : body.firstChild.firstChild,
+      textContent  : body.firstChild.firstChild.data,
+      childElement : body.firstChild.lastElementChild,
+    }
+
+    assert.equal(  snapshot1.p,           snapshot2.p,
+                    'Preserves undifferentiated elements')
+    assert.equal(   snapshot1.text,         snapshot2.text,
+                    'Preserves undifferentiated text nodes')
+    assert.notEqual(snapshot1.textContent,  snapshot2.textContent,
+                    'Replaces differentiated node data')
+    assert.notEqual(snapshot1.textContent,  snapshot2.textContent,
+                    'Replaces differentiated node data')
+    assert.notEqual(snapshot1.childElement, snapshot2.childElement,
+                    'Replaces differentiated elements')
+  })
+
+  test('new interpolations update DOM', () => {
+    let count = 1
+
+    const CounterView = {
+      view(){
+        return pug`
+          h1 The count is currently ${ count }
+        `
+      }
+    }
+
+    m.mount(body, CounterView)
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently 1</h1>`,
+    )
+
+    count++
+
+    m.redraw()
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently 2</h1>`,
+    )
+
+    count **= count
+
+    m.redraw()
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently 4</h1>`,
+    )
+
+    count = pug`
+      blink more complicated!
+    `
+
+    m.redraw()
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently <blink>more complicated!</blink></h1>`,
+    )
   })
 })
