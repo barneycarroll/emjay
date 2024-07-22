@@ -400,32 +400,121 @@ suite('special attributes', () => {
 
     m.render(body, pug`div(${ lifecycle })`)
 
-    test('first render executes `oninit` & `oncreate`', () => {
-      assert.deepEqual(callCounts, [1, 1, 0, 0, 0, 0])
-    })
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 0, 0, 0, 0],
+      'first render executes `oninit` & `oncreate`'
+    )
 
     m.render(body, pug`div(${ lifecycle })`)
 
-    test('second render executes `onbeforeupdate` & `onupdate`', () => {
-      assert.deepEqual(callCounts, [1, 1, 1, 1, 0, 0])
-    })
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 1, 1, 0, 0],
+      'second render executes `onbeforeupdate` & `onupdate`'
+    )
 
     m.render(body, pug`div(${ lifecycle })`)
 
-    test('third render re-executes `onbeforeupdate` & `onupdate`', () => {
-      assert.deepEqual(callCounts, [1, 1, 2, 2, 0, 0])
-    })
-
-    m.render(body, pug`div(${ lifecycle })`)
-
-    test('second render triggers `onbeforeupdate` & `onupdate`', () => {
-      assert.deepEqual(callCounts, [1, 1, 2, 2, 0, 0])
-    })
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 2, 2, 0, 0],
+      'third render re-executes `onbeforeupdate` & `onupdate`'
+    )
 
     m.render(body, undefined)
 
-    test('removal executes `onbeforeremove` & `onremove`', () => {
-      assert.deepEqual(callCounts, [1, 1, 2, 2, 1, 1])
-    })
+    assert.deepEqual(
+      callCounts(),
+      [1, 1, 2, 2, 1, 1],
+      'removal executes `onbeforeremove` & `onremove`'
+    )
+  })
+})
+
+suite('updates', () => {
+  test('new templates update DOM', () => {
+    m.render(body, pug`
+      p.
+        Some #[em content]
+    `)
+
+    const snapshot1 = {
+      p            : body.firstChild,
+      text         : body.firstChild.firstChild,
+      textContent  : body.firstChild.firstChild.data,
+      childElement : body.firstChild.lastElementChild,
+    }
+
+    m.render(body, pug`
+      p.
+        Different #[strong content]
+    `)
+
+    const snapshot2 = {
+      p            : body.firstChild,
+      text         : body.firstChild.firstChild,
+      textContent  : body.firstChild.firstChild.data,
+      childElement : body.firstChild.lastElementChild,
+    }
+
+    assert.equal(  snapshot1.p,           snapshot2.p,
+                    'Preserves undifferentiated elements')
+    assert.equal(   snapshot1.text,         snapshot2.text,
+                    'Preserves undifferentiated text nodes')
+    assert.notEqual(snapshot1.textContent,  snapshot2.textContent,
+                    'Replaces differentiated node data')
+    assert.notEqual(snapshot1.textContent,  snapshot2.textContent,
+                    'Replaces differentiated node data')
+    assert.notEqual(snapshot1.childElement, snapshot2.childElement,
+                    'Replaces differentiated elements')
+  })
+
+  test('new interpolations update DOM', () => {
+    let count = 1
+
+    const CounterView = {
+      view(){
+        return pug`
+          h1 The count is currently ${ count }
+        `
+      }
+    }
+
+    m.mount(body, CounterView)
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently 1</h1>`,
+    )
+
+    count++
+
+    m.redraw()
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently 2</h1>`,
+    )
+
+    count **= count
+
+    m.redraw()
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently 4</h1>`,
+    )
+
+    count = pug`
+      blink more complicated!
+    `
+
+    m.redraw()
+
+    assert.equal(
+      body.innerHTML,
+      `<h1>The count is currently <blink>more complicated!</blink></h1>`,
+    )
   })
 })
