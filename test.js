@@ -346,7 +346,7 @@ suite('interpolations', () => {
       )
     })
 
-    test('style attribute objects', () => {
+    test('`style` attribute objects', () => {
       assertNodeParity(
         pug`header(style=${{border: '1px solid', background: 'red'}})`,
         m(`header`, {style: {border: '1px solid', background: 'red'}}),
@@ -355,95 +355,77 @@ suite('interpolations', () => {
   })
 })
 
-suite('special attributes', async () => {
-  test('`key` assignment', () => {
+suite('special attributes', () => {
+  test('`key` assignment', t => {
     const key = Date.now()
 
-    assert.deepEqual(
+    t.assert.deepEqual(
       pug`p(${ {key} })`,
 
       m('p', {key}),
     )
   })
 
-  test('lifecycle', async context => {
-    const sequence = `
-      oninit
-      oncreate
-      onbeforeupdate
-      onupdate
-      onbeforeremove
-      onremove
-    `
-      .trim().split(/\s+/)
+  test('lifecycle', () => {
+    // These are all the lifecycle methods,
+    // in sequential order of execution
+    const sequence = [
+      // oninit & oncreate are executed in the first render
+      // before & after the subtree view is executed and persisted to DOM
+      'oninit',
+      'oncreate',
+      // onbeforeupdate & onupdate execute in subsequent renders
+      // before & after the subtree view is executed and persisted to DOM
+      'onbeforeupdate',
+      'onupdate',
+      // onbeforeupdate & onupdate execute when the entity is removed from view
+      // before & after the subtree view is executed and persisted to DOM
+      'onbeforeremove',
+      'onremove',
+    ]
 
-    context.plan(
-      // Each hook checks the execution state of each other hook
-      sequence.length * (sequence.length - 1)
-      +
-      // We also check each hooks state after each of 3 render passes
-      sequence.length * 3
-    )
+    // A dictionary to pass as attributes, each with a simple mock
+    const lifecycle = {
+      oninit         : mock.fn(),
+      oncreate       : mock.fn(),
+      onbeforeupdate : mock.fn(),
+      onupdate       : mock.fn(),
+      onbeforeremove : mock.fn(),
+      onremove       : mock.fn(),
+    }
 
-    const {promise, resolve} = Promise.withResolvers()
-
-    const lifecycle = Object.fromEntries(
-      sequence.map((k1, i1) =>
-        [k1, mock.fn(() => {
-          context.test(k1, () => {
-            sequence.map((k2, i2) => {
-                  if(i2 < i1)
-                context.assert(
-                  lifecycle[k2].mock.callCount() === 1,
-                  `${k2} didn't execute before ${k1}`
-                )
-              else if(i2 > i1)
-                context.assert(
-                  lifecycle[k2].mock.callCount() === 0,
-                  `${k2} executed before ${k1}`
-                )
-
-              if('onremove' === k1 && k1 === k2)
-                resolve()
-            })
-          })
-        })
-      ])
-    )
+    // Returns an array of current call counts for the lifecycle attributes
+    const callCounts = () =>
+      sequence.map(key => lifecycle[key].mock.callCount())
 
     m.render(body, pug`div(${ lifecycle })`)
 
-    context.test('first render triggers `oninit` & `oncreate`', () => {
-      context.assert(lifecycle.oninit        .mock.callCount() === 1)
-      context.assert(lifecycle.oncreate      .mock.callCount() === 1)
-      context.assert(lifecycle.onbeforeupdate.mock.callCount() === 0)
-      context.assert(lifecycle.onupdate      .mock.callCount() === 0)
-      context.assert(lifecycle.onbeforeremove.mock.callCount() === 0)
-      context.assert(lifecycle.onremove      .mock.callCount() === 0)
+    test('first render executes `oninit` & `oncreate`', () => {
+      assert.deepEqual(callCounts, [1, 1, 0, 0, 0, 0])
     })
 
     m.render(body, pug`div(${ lifecycle })`)
 
-    context.test('second render triggers `onbeforeupdate` & `onupdate`', () => {
-      context.assert(lifecycle.oninit        .mock.callCount() === 1)
-      context.assert(lifecycle.oncreate      .mock.callCount() === 1)
-      context.assert(lifecycle.onbeforeupdate.mock.callCount() === 1)
-      context.assert(lifecycle.onupdate      .mock.callCount() === 1)
-      context.assert(lifecycle.onbeforeremove.mock.callCount() === 0)
-      context.assert(lifecycle.onremove      .mock.callCount() === 0)
+    test('second render executes `onbeforeupdate` & `onupdate`', () => {
+      assert.deepEqual(callCounts, [1, 1, 1, 1, 0, 0])
+    })
+
+    m.render(body, pug`div(${ lifecycle })`)
+
+    test('third render re-executes `onbeforeupdate` & `onupdate`', () => {
+      assert.deepEqual(callCounts, [1, 1, 2, 2, 0, 0])
+    })
+
+    m.render(body, pug`div(${ lifecycle })`)
+
+    test('second render triggers `onbeforeupdate` & `onupdate`', () => {
+      assert.deepEqual(callCounts, [1, 1, 2, 2, 0, 0])
     })
 
     m.render(body, undefined)
 
-    context.test('third render triggers `onbeforeremove` & `onremove`', () => {
-      context.assert(lifecycle.oninit        .mock.callCount() === 1)
-      context.assert(lifecycle.oncreate      .mock.callCount() === 1)
-      context.assert(lifecycle.onbeforeupdate.mock.callCount() === 1)
-      context.assert(lifecycle.onupdate      .mock.callCount() === 1)
-      context.assert(lifecycle.onbeforeremove.mock.callCount() === 1)
-      context.assert(lifecycle.onremove      .mock.callCount() === 1)
+    test('removal executes `onbeforeremove` & `onremove`', () => {
+      assert.deepEqual(callCounts, [1, 1, 2, 2, 1, 1])
     })
-
-    return promise
   })
 })
